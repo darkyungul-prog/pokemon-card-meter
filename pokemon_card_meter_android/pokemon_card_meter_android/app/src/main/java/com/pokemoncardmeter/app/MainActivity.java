@@ -9,6 +9,7 @@ import android.graphics.BitmapFactory;
 import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.ImageFormat;
+import android.graphics.Matrix;
 import android.graphics.Paint;
 import android.graphics.RectF;
 import android.graphics.SurfaceTexture;
@@ -20,6 +21,7 @@ import android.hardware.camera2.CameraManager;
 import android.hardware.camera2.CaptureRequest;
 import android.hardware.camera2.TotalCaptureResult;
 import android.hardware.camera2.params.StreamConfigurationMap;
+import android.media.ExifInterface;
 import android.media.Image;
 import android.media.ImageReader;
 import android.os.Bundle;
@@ -154,7 +156,7 @@ public class MainActivity extends Activity {
 
         FrameLayout cameraCard = new FrameLayout(this);
         cameraCard.setBackground(roundRect(panel, dp(24)));
-        LinearLayout.LayoutParams cameraLp = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(390));
+        LinearLayout.LayoutParams cameraLp = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(540));
         cameraLp.bottomMargin = dp(12);
         root.addView(cameraCard, cameraLp);
 
@@ -517,8 +519,9 @@ public class MainActivity extends Activity {
             try (FileOutputStream out = new FileOutputStream(lastPhoto)) {
                 out.write(bytes);
             }
+            final Bitmap portraitBitmap = normalizeCapturedPhoto(lastPhoto);
             runOnUiThread(() -> {
-                capturedView.setImageBitmap(BitmapFactory.decodeFile(lastPhoto.getAbsolutePath()));
+                capturedView.setImageBitmap(portraitBitmap);
                 capturedView.setVisibility(View.VISIBLE);
                 textureView.setVisibility(View.INVISIBLE);
                 guideOverlay.setVisibility(View.GONE);
@@ -534,6 +537,52 @@ public class MainActivity extends Activity {
         } finally {
             if (image != null) image.close();
         }
+    }
+
+    /**
+     * Some Camera2 implementations save portrait captures as landscape JPEG pixels
+     * with an EXIF rotation flag. BitmapFactory does not apply that flag by itself,
+     * so normalize the file once after capture. The app always scans portrait cards,
+     * therefore a landscape image with no useful EXIF flag is rotated 90 degrees.
+     */
+    private Bitmap normalizeCapturedPhoto(File file) throws Exception {
+        int rotation = 0;
+        try {
+            ExifInterface exif = new ExifInterface(file.getAbsolutePath());
+            int orientation = exif.getAttributeInt(ExifInterface.TAG_ORIENTATION, ExifInterface.ORIENTATION_NORMAL);
+            if (orientation == ExifInterface.ORIENTATION_ROTATE_90) rotation = 90;
+            else if (orientation == ExifInterface.ORIENTATION_ROTATE_180) rotation = 180;
+            else if (orientation == ExifInterface.ORIENTATION_ROTATE_270) rotation = 270;
+        } catch (Exception ignored) { }
+
+        BitmapFactory.Options bounds = new BitmapFactory.Options();
+        bounds.inJustDecodeBounds = true;
+        BitmapFactory.decodeFile(file.getAbsolutePath(), bounds);
+        int maxSide = Math.max(bounds.outWidth, bounds.outHeight);
+        int sample = 1;
+        while (maxSide / sample > 2200) sample *= 2;
+
+        BitmapFactory.Options options = new BitmapFactory.Options();
+        options.inSampleSize = Math.max(1, sample);
+        Bitmap bitmap = BitmapFactory.decodeFile(file.getAbsolutePath(), options);
+        if (bitmap == null) throw new Exception("촬영 이미지를 읽지 못했습니다.");
+
+        // Fallback for devices that omit/ignore EXIF orientation on Camera2 JPEGs.
+        if (rotation == 0 && bitmap.getWidth() > bitmap.getHeight()) rotation = 90;
+
+        Bitmap normalized = bitmap;
+        if (rotation != 0) {
+            Matrix matrix = new Matrix();
+            matrix.postRotate(rotation);
+            normalized = Bitmap.createBitmap(bitmap, 0, 0, bitmap.getWidth(), bitmap.getHeight(), matrix, true);
+            if (normalized != bitmap) bitmap.recycle();
+        }
+
+        // Save the normalized portrait JPEG so the preview and AI server receive the same orientation.
+        try (FileOutputStream out = new FileOutputStream(file, false)) {
+            normalized.compress(Bitmap.CompressFormat.JPEG, 94, out);
+        }
+        return normalized;
     }
 
     private void showCameraAgain() {
@@ -885,9 +934,9 @@ public class MainActivity extends Activity {
         @Override protected void onDraw(Canvas c) {
             super.onDraw(c);
             float w = getWidth(), h = getHeight();
-            float frameW = Math.min(w * 0.78f, h * 0.59f);
+            float frameW = w * 0.90f;
             float frameH = frameW * (88f / 63f);
-            if (frameH > h * 0.79f) { frameH = h * 0.79f; frameW = frameH * (63f / 88f); }
+            if (frameH > h * 0.88f) { frameH = h * 0.88f; frameW = frameH * (63f / 88f); }
             float left = (w - frameW) / 2f;
             float top = (h - frameH) / 2f - 8 * density;
             card.set(left, top, left + frameW, top + frameH);
