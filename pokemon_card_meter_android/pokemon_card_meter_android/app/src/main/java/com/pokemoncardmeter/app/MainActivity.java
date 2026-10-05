@@ -134,7 +134,7 @@ public class MainActivity extends Activity {
         root.setPadding(dp(16), dp(12), dp(16), dp(22));
         scroll.addView(root, new ScrollView.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
 
-        TextView badge = label("STEP 3 · AI + 카드 DB 검증", 12, Color.rgb(23, 33, 63), true);
+        TextView badge = label("STEP 3 · 한국판 우선 DB 검증", 12, Color.rgb(23, 33, 63), true);
         badge.setBackground(roundRect(yellow, dp(18)));
         badge.setPadding(dp(12), dp(7), dp(12), dp(7));
         LinearLayout.LayoutParams badgeLp = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
@@ -147,7 +147,7 @@ public class MainActivity extends Activity {
         titleLp.topMargin = dp(10);
         root.addView(title, titleLp);
 
-        TextView sub = label("촬영 후 AI 인식 결과를 카드 DB와 자동 대조합니다.", 13, Color.rgb(194, 205, 235), false);
+        TextView sub = label("촬영 후 AI 결과를 한국판 카드 DB부터 우선 검증합니다.", 13, Color.rgb(194, 205, 235), false);
         sub.setGravity(Gravity.CENTER);
         LinearLayout.LayoutParams subLp = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
         subLp.topMargin = dp(4);
@@ -638,7 +638,7 @@ public class MainActivity extends Activity {
         statusText.setText("AI 인식 완료 · 카드 DB와 대조하는 중입니다…");
         helperText.setTextColor(Color.rgb(75, 118, 255));
         helperText.setText("STEP 2 완료 ✓  · 카드 DB 대조 중…");
-        dbStatusText.setText("TCGdex 카드 DB 확인 중…");
+        dbStatusText.setText("한국판 우선 카드 DB 확인 중…");
         new Thread(() -> {
             try {
                 JSONObject db = verifyCardWithDb(obj);
@@ -693,19 +693,73 @@ public class MainActivity extends Activity {
         String setCode = ai.optString("setCode", "").trim();
         String aiName = ai.optString("cardName", "").trim();
         String aiNumber = ai.optString("cardNumber", "").trim();
+        String aiLanguage = ai.optString("language", "").trim().toLowerCase();
         String localId = aiNumber.contains("/") ? aiNumber.substring(0, aiNumber.indexOf('/')).trim() : aiNumber;
         localId = normalizeLocalId(localId);
 
+        boolean koreanCard = aiLanguage.contains("korean") || aiLanguage.equals("ko") || containsHangul(aiName);
+
+        // Korean cards must be verified against Korean data first.
+        // Japanese/English printings can use different numbering, so never accept a
+        // Japanese/English card by NUMBER ONLY when the photographed card is Korean.
+        if (koreanCard) {
+            JSONObject koreanSet = fetchDbJson("https://api.tcgdex.net/v2/ko/sets/" + URLEncoder.encode(setCode, "UTF-8"));
+            if (koreanSet != null) {
+                JSONArray cards = koreanSet.optJSONArray("cards");
+                if (cards != null) {
+                    JSONObject byName = findCardByName(cards, aiName);
+                    JSONObject byNumber = findCardByLocalId(cards, localId);
+
+                    if (byName != null) {
+                        String dbLocal = normalizeLocalId(byName.optString("localId", ""));
+                        JSONObject full = fetchDbJson("https://api.tcgdex.net/v2/ko/sets/" + URLEncoder.encode(setCode, "UTF-8") + "/" + URLEncoder.encode(dbLocal, "UTF-8"));
+                        if (full == null) full = byName;
+
+                        // If both name and number agree, it is a strong Korean DB match.
+                        boolean sameNumber = dbLocal.equals(localId);
+                        String message = sameNumber
+                                ? "한국판 DB에서 카드명과 번호가 일치합니다."
+                                : "한국판 DB에서 카드명은 확인됐지만 번호가 달라 DB 번호로 보정합니다.";
+                        return buildDbResult(full, koreanSet, dbLocal, true, !sameNumber, "ko", message);
+                    }
+
+                    if (byNumber != null) {
+                        JSONObject full = fetchDbJson("https://api.tcgdex.net/v2/ko/sets/" + URLEncoder.encode(setCode, "UTF-8") + "/" + URLEncoder.encode(localId, "UTF-8"));
+                        if (full == null) full = byNumber;
+
+                        String dbName = full.optString("name", "");
+                        if (!dbName.isEmpty() && normalizeName(dbName).equals(normalizeName(aiName))) {
+                            return buildDbResult(full, koreanSet, localId, true, false, "ko",
+                                    "한국판 DB에서 카드명과 번호가 일치합니다.");
+                        }
+
+                        JSONObject result = buildDbResult(full, koreanSet, localId, false, false, "ko",
+                                "한국판 DB에 같은 번호는 있지만 카드명까지 확인되지 않아 AI 결과를 유지합니다.");
+                        return result;
+                    }
+                }
+            }
+
+            JSONObject none = new JSONObject();
+            none.put("matched", false);
+            none.put("corrected", false);
+            none.put("language", "ko");
+            none.put("message", "한국판 우선 검증: 한국어 DB에서 완전 일치를 찾지 못했습니다. 일본판/영문판은 카드번호가 다를 수 있어 번호만으로 대체하지 않고 AI 결과를 유지합니다.");
+            return none;
+        }
+
+        // Non-Korean cards may use language fallbacks, but a match is accepted only
+        // when the card name matches. Number-only candidates are shown as unverified.
         JSONObject fallback = null;
-        String[] langs = new String[]{"ko", "ja", "en"};
+        String[] langs = new String[]{"ja", "en"};
         for (String lang : langs) {
             JSONObject set = fetchDbJson("https://api.tcgdex.net/v2/" + lang + "/sets/" + URLEncoder.encode(setCode, "UTF-8"));
             if (set == null) continue;
             JSONArray cards = set.optJSONArray("cards");
             if (cards == null) continue;
 
-            JSONObject byNumber = findCardByLocalId(cards, localId);
             JSONObject byName = findCardByName(cards, aiName);
+            JSONObject byNumber = findCardByLocalId(cards, localId);
 
             if (byName != null) {
                 String dbLocal = normalizeLocalId(byName.optString("localId", ""));
@@ -717,7 +771,8 @@ public class MainActivity extends Activity {
             if (byNumber != null && fallback == null) {
                 JSONObject full = fetchDbJson("https://api.tcgdex.net/v2/" + lang + "/sets/" + URLEncoder.encode(setCode, "UTF-8") + "/" + URLEncoder.encode(localId, "UTF-8"));
                 if (full == null) full = byNumber;
-                fallback = buildDbResult(full, set, localId, false, false, lang, "번호는 DB에 있지만 카드명을 같은 언어로 확인하지 못했습니다.");
+                fallback = buildDbResult(full, set, localId, false, false, lang,
+                        "번호 후보는 찾았지만 카드명이 일치하지 않아 자동 확정하지 않습니다.");
             }
         }
 
@@ -725,8 +780,17 @@ public class MainActivity extends Activity {
         JSONObject none = new JSONObject();
         none.put("matched", false);
         none.put("corrected", false);
-        none.put("message", "TCGdex DB에서 이 세트/카드 정보를 찾지 못했습니다. AI 결과를 유지합니다.");
+        none.put("message", "카드 DB에서 카드명과 번호가 함께 일치하는 항목을 찾지 못했습니다. AI 결과를 유지합니다.");
         return none;
+    }
+
+    private boolean containsHangul(String s) {
+        if (s == null) return false;
+        for (int i = 0; i < s.length(); i++) {
+            char ch = s.charAt(i);
+            if ((ch >= 0xAC00 && ch <= 0xD7A3) || (ch >= 0x3131 && ch <= 0x318E)) return true;
+        }
+        return false;
     }
 
     private JSONObject buildDbResult(JSONObject card, JSONObject set, String localId, boolean matched, boolean corrected, String lang, String message) throws Exception {
