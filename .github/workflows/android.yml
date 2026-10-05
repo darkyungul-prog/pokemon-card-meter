@@ -19,10 +19,13 @@ jobs:
           distribution: temurin
           java-version: '17'
 
-      - name: Android SDK 패키지 준비
-        run: |
-          yes | sdkmanager --licenses >/dev/null || true
-          sdkmanager "platform-tools" "platforms;android-35" "build-tools;35.0.0"
+      - name: Android SDK 준비
+        uses: android-actions/setup-android@v4
+        with:
+          packages: 'platform-tools'
+
+      - name: Android 35 설치
+        run: sdkmanager "platforms;android-35" "build-tools;35.0.0"
 
       - name: Gradle 준비
         uses: gradle/actions/setup-gradle@v4
@@ -33,7 +36,7 @@ jobs:
         working-directory: pokemon_card_meter_android
         run: gradle :app:assembleDebug --stacktrace
 
-      - name: APK 파일 저장
+      - name: APK 저장
         uses: actions/upload-artifact@v4
         with:
           name: pokemon-card-meter-camera-test
