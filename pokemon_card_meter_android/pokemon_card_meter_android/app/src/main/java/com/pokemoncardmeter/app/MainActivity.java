@@ -764,7 +764,7 @@ public class MainActivity extends Activity {
             dbStatusText.setText(db.optString("message", "DB에서 완전 일치 카드를 찾지 못했습니다."));
             statusText.setText("AI 인식 완료 · DB 후보를 확인해 주세요.");
             helperText.setText("DB 일치 여부 확인 필요 · AI 값은 자동 변경하지 않았습니다.");
-            marketButton.setEnabled(false);
+            marketButton.setEnabled(true);
         }
     }
 
