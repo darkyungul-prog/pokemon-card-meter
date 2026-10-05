@@ -53,6 +53,7 @@ import java.io.InputStreamReader;
 import java.io.OutputStream;
 import java.net.HttpURLConnection;
 import java.net.URL;
+import java.net.URLEncoder;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -79,6 +80,12 @@ public class MainActivity extends Activity {
     private EditText rarityInput;
     private EditText languageInput;
     private TextView confidenceText;
+    private TextView dbStatusText;
+    private TextView dbNameText;
+    private TextView dbSetText;
+    private TextView dbNumberText;
+    private TextView dbCategoryText;
+    private TextView dbRarityText;
 
     private CameraDevice cameraDevice;
     private CameraCaptureSession captureSession;
@@ -125,7 +132,7 @@ public class MainActivity extends Activity {
         root.setPadding(dp(16), dp(12), dp(16), dp(22));
         scroll.addView(root, new ScrollView.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
 
-        TextView badge = label("STEP 2 · AI 카드 인식", 12, Color.rgb(23, 33, 63), true);
+        TextView badge = label("STEP 3 · AI + 카드 DB 검증", 12, Color.rgb(23, 33, 63), true);
         badge.setBackground(roundRect(yellow, dp(18)));
         badge.setPadding(dp(12), dp(7), dp(12), dp(7));
         LinearLayout.LayoutParams badgeLp = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
@@ -138,7 +145,7 @@ public class MainActivity extends Activity {
         titleLp.topMargin = dp(10);
         root.addView(title, titleLp);
 
-        TextView sub = label("카드를 촬영하면 서버의 AI가 자동으로 카드 정보를 읽습니다.", 13, Color.rgb(194, 205, 235), false);
+        TextView sub = label("촬영 후 AI 인식 결과를 카드 DB와 자동 대조합니다.", 13, Color.rgb(194, 205, 235), false);
         sub.setGravity(Gravity.CENTER);
         LinearLayout.LayoutParams subLp = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
         subLp.topMargin = dp(4);
@@ -176,14 +183,14 @@ public class MainActivity extends Activity {
         buttonLp.topMargin = dp(10);
         root.addView(captureButton, buttonLp);
 
-        LinearLayout resultPanel = sectionPanel(root, "AI 인식 결과", "촬영이 끝나면 자동으로 분석합니다. 카드명, 세트코드, 카드번호, HP, 희귀도를 채우고 틀린 값은 직접 수정할 수 있습니다.");
+        LinearLayout resultPanel = sectionPanel(root, "AI 인식 결과", "먼저 AI가 카드 정보를 읽고, 이어서 카드 DB에서 세트·번호·희귀도를 다시 확인합니다.");
 
         analyzeButton = primaryButton("다시 인식", Color.rgb(75, 118, 255), Color.WHITE);
         analyzeButton.setEnabled(false);
         LinearLayout.LayoutParams analyzeLp = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(58));
         resultPanel.addView(analyzeButton, analyzeLp);
 
-        helperText = label("다음 단계: 카드 DB 및 시세 검색 연결", 12, Color.rgb(137, 153, 196), false);
+        helperText = label("AI 인식 후 카드 DB를 자동 대조합니다", 12, Color.rgb(137, 153, 196), false);
         helperText.setGravity(Gravity.CENTER_HORIZONTAL);
         LinearLayout.LayoutParams helperLp = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
         helperLp.topMargin = dp(10);
@@ -202,6 +209,31 @@ public class MainActivity extends Activity {
         LinearLayout.LayoutParams confLp = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
         confLp.topMargin = dp(12);
         resultPanel.addView(confidenceText, confLp);
+
+        LinearLayout dbPanel = new LinearLayout(this);
+        dbPanel.setOrientation(LinearLayout.VERTICAL);
+        dbPanel.setPadding(dp(12), dp(12), dp(12), dp(12));
+        dbPanel.setBackground(roundRect(Color.rgb(246, 248, 255), dp(18)));
+        LinearLayout.LayoutParams dbLp = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+        dbLp.topMargin = dp(14);
+        resultPanel.addView(dbPanel, dbLp);
+
+        TextView dbTitle = label("카드 DB 대조", 15, Color.rgb(20, 34, 77), true);
+        dbPanel.addView(dbTitle);
+        dbStatusText = label("아직 DB 대조 전입니다.", 13, Color.rgb(74, 86, 120), true);
+        LinearLayout.LayoutParams dbStatusLp = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+        dbStatusLp.topMargin = dp(8);
+        dbPanel.addView(dbStatusText, dbStatusLp);
+        dbNameText = label("DB 카드명: -", 13, Color.rgb(74, 86, 120), false);
+        dbSetText = label("DB 세트: -", 13, Color.rgb(74, 86, 120), false);
+        dbNumberText = label("DB 카드번호: -", 13, Color.rgb(74, 86, 120), false);
+        dbCategoryText = label("DB 종류: -", 13, Color.rgb(74, 86, 120), false);
+        dbRarityText = label("DB 희귀도: -", 13, Color.rgb(74, 86, 120), false);
+        dbPanel.addView(dbNameText);
+        dbPanel.addView(dbSetText);
+        dbPanel.addView(dbNumberText);
+        dbPanel.addView(dbCategoryText);
+        dbPanel.addView(dbRarityText);
 
         TextView rawTitle = label("AI 원문 응답", 13, Color.rgb(20, 34, 77), true);
         LinearLayout.LayoutParams rawTitleLp = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
@@ -511,6 +543,14 @@ public class MainActivity extends Activity {
         captureButton.setText("카드 촬영");
         analyzeButton.setEnabled(false);
         statusText.setText("카드 네 모서리를 노란 프레임에 맞춰주세요.");
+        if (dbStatusText != null) {
+            dbStatusText.setText("아직 DB 대조 전입니다.");
+            dbNameText.setText("DB 카드명: -");
+            dbSetText.setText("DB 세트: -");
+            dbNumberText.setText("DB 카드번호: -");
+            dbCategoryText.setText("DB 종류: -");
+            dbRarityText.setText("DB 희귀도: -");
+        }
     }
 
     private void analyzeCapturedCard() {
@@ -546,9 +586,174 @@ public class MainActivity extends Activity {
         confidenceText.setText("인식 신뢰도: " + obj.optString("confidence", "-") + "%");
         aiRawText.setText(obj.toString());
         analyzeButton.setEnabled(true);
-        statusText.setText("AI 인식 완료 · 자동입력된 값을 확인해 주세요.");
-        helperText.setTextColor(Color.rgb(255, 216, 70));
-        helperText.setText("STEP 2 완료 ✓  · 다음: 카드 DB 대조 및 시세 검색");
+        statusText.setText("AI 인식 완료 · 카드 DB와 대조하는 중입니다…");
+        helperText.setTextColor(Color.rgb(75, 118, 255));
+        helperText.setText("STEP 2 완료 ✓  · 카드 DB 대조 중…");
+        dbStatusText.setText("TCGdex 카드 DB 확인 중…");
+        new Thread(() -> {
+            try {
+                JSONObject db = verifyCardWithDb(obj);
+                runOnUiThread(() -> applyDbResult(db));
+            } catch (Exception e) {
+                runOnUiThread(() -> {
+                    dbStatusText.setText("DB 대조 실패 · AI 결과는 그대로 유지합니다.");
+                    dbNameText.setText("DB 오류: " + e.getMessage());
+                    statusText.setText("AI 인식은 완료됐지만 DB 대조에 실패했습니다.");
+                    helperText.setText("STEP 2 완료 ✓  · DB 대조는 다시 시도 예정");
+                });
+            }
+        }).start();
+    }
+
+    private void applyDbResult(JSONObject db) {
+        boolean matched = db.optBoolean("matched", false);
+        boolean corrected = db.optBoolean("corrected", false);
+        String dbName = db.optString("name", "");
+        String dbSet = db.optString("setName", "");
+        String dbNumber = db.optString("cardNumber", "");
+        String dbCategory = db.optString("category", "");
+        String dbRarity = db.optString("rarity", "");
+        String dbHp = db.optString("hp", "");
+
+        dbNameText.setText("DB 카드명: " + emptyDash(dbName));
+        dbSetText.setText("DB 세트: " + emptyDash(dbSet));
+        dbNumberText.setText("DB 카드번호: " + emptyDash(dbNumber));
+        dbCategoryText.setText("DB 종류: " + emptyDash(dbCategory));
+        dbRarityText.setText("DB 희귀도: " + emptyDash(dbRarity));
+
+        if (matched) {
+            if (!dbRarity.isEmpty()) rarityInput.setText(dbRarity);
+            if (!dbHp.isEmpty() && hpInput.getText().toString().trim().isEmpty()) hpInput.setText(dbHp);
+            if (!dbNumber.isEmpty()) cardNumberInput.setText(dbNumber);
+            dbStatusText.setText(corrected ? "DB 확인 완료 ✓ · 카드번호를 자동 보정했습니다." : "DB 확인 완료 ✓ · AI 결과와 DB가 일치합니다.");
+            statusText.setText("AI + 카드 DB 검증 완료 · 결과를 확인해 주세요.");
+            helperText.setTextColor(Color.rgb(255, 216, 70));
+            helperText.setText("STEP 3 완료 ✓  · 다음: 시세 검색");
+        } else {
+            dbStatusText.setText(db.optString("message", "DB에서 완전 일치 카드를 찾지 못했습니다."));
+            statusText.setText("AI 인식 완료 · DB 후보를 확인해 주세요.");
+            helperText.setText("DB 일치 여부 확인 필요 · AI 값은 자동 변경하지 않았습니다.");
+        }
+    }
+
+    private String emptyDash(String s) {
+        return (s == null || s.trim().isEmpty()) ? "-" : s;
+    }
+
+    private JSONObject verifyCardWithDb(JSONObject ai) throws Exception {
+        String setCode = ai.optString("setCode", "").trim();
+        String aiName = ai.optString("cardName", "").trim();
+        String aiNumber = ai.optString("cardNumber", "").trim();
+        String localId = aiNumber.contains("/") ? aiNumber.substring(0, aiNumber.indexOf('/')).trim() : aiNumber;
+        localId = normalizeLocalId(localId);
+
+        JSONObject fallback = null;
+        String[] langs = new String[]{"ko", "ja", "en"};
+        for (String lang : langs) {
+            JSONObject set = fetchDbJson("https://api.tcgdex.net/v2/" + lang + "/sets/" + URLEncoder.encode(setCode, "UTF-8"));
+            if (set == null) continue;
+            JSONArray cards = set.optJSONArray("cards");
+            if (cards == null) continue;
+
+            JSONObject byNumber = findCardByLocalId(cards, localId);
+            JSONObject byName = findCardByName(cards, aiName);
+
+            if (byName != null) {
+                String dbLocal = normalizeLocalId(byName.optString("localId", ""));
+                JSONObject full = fetchDbJson("https://api.tcgdex.net/v2/" + lang + "/sets/" + URLEncoder.encode(setCode, "UTF-8") + "/" + URLEncoder.encode(dbLocal, "UTF-8"));
+                if (full == null) full = byName;
+                return buildDbResult(full, set, dbLocal, true, !dbLocal.equals(localId), lang, "");
+            }
+
+            if (byNumber != null && fallback == null) {
+                JSONObject full = fetchDbJson("https://api.tcgdex.net/v2/" + lang + "/sets/" + URLEncoder.encode(setCode, "UTF-8") + "/" + URLEncoder.encode(localId, "UTF-8"));
+                if (full == null) full = byNumber;
+                fallback = buildDbResult(full, set, localId, false, false, lang, "번호는 DB에 있지만 카드명을 같은 언어로 확인하지 못했습니다.");
+            }
+        }
+
+        if (fallback != null) return fallback;
+        JSONObject none = new JSONObject();
+        none.put("matched", false);
+        none.put("corrected", false);
+        none.put("message", "TCGdex DB에서 이 세트/카드 정보를 찾지 못했습니다. AI 결과를 유지합니다.");
+        return none;
+    }
+
+    private JSONObject buildDbResult(JSONObject card, JSONObject set, String localId, boolean matched, boolean corrected, String lang, String message) throws Exception {
+        JSONObject out = new JSONObject();
+        int official = set.optJSONObject("cardCount") != null ? set.optJSONObject("cardCount").optInt("official", 0) : 0;
+        String displayNumber = localId;
+        if (official > 0) displayNumber = padNumber(localId, official) + "/" + official;
+        out.put("matched", matched);
+        out.put("corrected", corrected);
+        out.put("language", lang);
+        out.put("name", card.optString("name", ""));
+        out.put("setName", set.optString("name", ""));
+        out.put("cardNumber", displayNumber);
+        out.put("category", card.optString("category", ""));
+        out.put("rarity", card.optString("rarity", ""));
+        out.put("hp", card.has("hp") ? String.valueOf(card.opt("hp")) : "");
+        out.put("image", card.optString("image", ""));
+        out.put("message", message);
+        return out;
+    }
+
+    private JSONObject findCardByLocalId(JSONArray cards, String target) {
+        String nTarget = normalizeLocalId(target);
+        for (int i = 0; i < cards.length(); i++) {
+            JSONObject c = cards.optJSONObject(i);
+            if (c == null) continue;
+            if (normalizeLocalId(c.optString("localId", "")).equalsIgnoreCase(nTarget)) return c;
+        }
+        return null;
+    }
+
+    private JSONObject findCardByName(JSONArray cards, String target) {
+        String nTarget = normalizeName(target);
+        if (nTarget.isEmpty()) return null;
+        JSONObject contains = null;
+        for (int i = 0; i < cards.length(); i++) {
+            JSONObject c = cards.optJSONObject(i);
+            if (c == null) continue;
+            String n = normalizeName(c.optString("name", ""));
+            if (n.equals(nTarget)) return c;
+            if (n.length() >= 3 && nTarget.length() >= 3 && (n.contains(nTarget) || nTarget.contains(n))) contains = c;
+        }
+        return contains;
+    }
+
+    private String normalizeName(String s) {
+        if (s == null) return "";
+        return s.toLowerCase().replaceAll("[^\\p{L}\\p{N}]", "");
+    }
+
+    private String normalizeLocalId(String s) {
+        if (s == null) return "";
+        String t = s.trim();
+        if (t.matches("\\d+")) {
+            try { return String.valueOf(Integer.parseInt(t)); } catch (Exception ignored) { }
+        }
+        return t;
+    }
+
+    private String padNumber(String localId, int official) {
+        if (!localId.matches("\\d+")) return localId;
+        int digits = String.valueOf(official).length();
+        try { return String.format("%0" + digits + "d", Integer.parseInt(localId)); } catch (Exception e) { return localId; }
+    }
+
+    private JSONObject fetchDbJson(String urlText) throws Exception {
+        HttpURLConnection conn = (HttpURLConnection) new URL(urlText).openConnection();
+        conn.setRequestMethod("GET");
+        conn.setConnectTimeout(12000);
+        conn.setReadTimeout(18000);
+        conn.setRequestProperty("Accept", "application/json");
+        int code = conn.getResponseCode();
+        if (code == 404) return null;
+        String body = readAll(code >= 200 && code < 300 ? conn.getInputStream() : conn.getErrorStream());
+        if (code < 200 || code >= 300) throw new Exception("TCGdex 응답 오류(" + code + ")");
+        return new JSONObject(body);
     }
 
     private JSONObject callRecognitionServer(File imageFile) throws Exception {

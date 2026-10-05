@@ -1,6 +1,16 @@
-GitHub에서 아래 폴더로 이동하세요:
-pokemon_card_meter_android/pokemon_card_meter_android
+STEP 3 (DB 대조) 업로드 파일
 
-그 위치에서 Add file > Upload files를 누르고,
-이 압축을 푼 뒤 보이는 app 폴더를 드래그해서 업로드하세요.
-기존 같은 파일 3개가 STEP 3 서버연동 버전으로 교체됩니다.
+GitHub 경로:
+pokemon-card-meter / pokemon_card_meter_android / pokemon_card_meter_android
+
+이 ZIP을 풀면 보이는 app 폴더를 위 경로에서
+Add file → Upload files 로 업로드하세요.
+기존 app 폴더의 파일을 덮어쓰는 업데이트입니다.
+
+버전: 0.4-db-check
+기능:
+- 기존 카메라 촬영 유지
+- Render/OpenAI AI 자동인식 유지
+- 인식 직후 TCGdex 카드 DB 자동 대조
+- 세트/번호/희귀도/카드 종류 확인
+- DB 같은 카드명이 확인되면 카드번호 자동 보정
