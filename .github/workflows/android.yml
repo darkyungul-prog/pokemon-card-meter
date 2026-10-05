@@ -25,12 +25,12 @@ jobs:
           packages: 'platform-tools'
 
       - name: Android 35 설치
-        run: sdkmanager "platforms;android-35" "build-tools;35.0.0"
+        run: sdkmanager "platforms;android-36" "build-tools;36.0.0"
 
       - name: Gradle 준비
         uses: gradle/actions/setup-gradle@v4
         with:
-          gradle-version: '8.10.2'
+          gradle-version: '8.13'
 
       - name: APK 만들기
         working-directory: pokemon_card_meter_android/pokemon_card_meter_android
