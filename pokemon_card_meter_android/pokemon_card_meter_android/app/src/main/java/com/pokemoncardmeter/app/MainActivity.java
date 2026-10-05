@@ -212,7 +212,7 @@ public class MainActivity extends Activity {
         cardNumberInput = labeledField(resultPanel, "카드번호");
         hpInput = labeledField(resultPanel, "HP");
         rarityInput = labeledField(resultPanel, "희귀도");
-        1rarityInput.setVisibility(View.GONE);
+        rarityInput.setVisibility(View.GONE);
         languageInput = labeledField(resultPanel, "언어");
 
         confidenceText = label("인식 신뢰도: -", 13, Color.rgb(20, 34, 77), true);
