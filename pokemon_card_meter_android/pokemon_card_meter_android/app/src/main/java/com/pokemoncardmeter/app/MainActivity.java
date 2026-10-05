@@ -210,10 +210,9 @@ public class MainActivity extends Activity {
         cardNameInput = labeledField(resultPanel, "카드명");
         setCodeInput = labeledField(resultPanel, "세트코드");
         cardNumberInput = labeledField(resultPanel, "카드번호");
-        hpInput = labeledField(resultPanel, "HP");
-        rarityInput = labeledField(resultPanel, "희귀도");
-        rarityInput.setVisibility(View.GONE);
-        languageInput = labeledField(resultPanel, "언어");
+        hpInput = new EditText(this);
+        rarityInput = new EditText(this);
+        languageInput = new EditText(this);
 
         confidenceText = label("인식 신뢰도: -", 13, Color.rgb(20, 34, 77), true);
         confidenceText.setBackground(roundRect(Color.rgb(236, 241, 255), dp(14)));
