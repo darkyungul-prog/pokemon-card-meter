@@ -281,7 +281,7 @@ public class MainActivity extends Activity {
                         Color.rgb(255, 216, 70),
                         Color.rgb(20, 29, 58)
                 );
-        marketButton.setEnabled(false);
+        marketButton.setEnabled(true);
 
         LinearLayout.LayoutParams marketButtonLp =
                 new LinearLayout.LayoutParams(
