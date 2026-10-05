@@ -1,4 +1,4 @@
-name: Build Pokemon Card Meter APK
+name: Build Pokemon Card Meter APK and AAB
 
 on:
   push:
@@ -24,7 +24,7 @@ jobs:
         with:
           packages: 'platform-tools'
 
-      - name: Android 35 설치
+      - name: Android 36 설치
         run: sdkmanager "platforms;android-36" "build-tools;36.0.0"
 
       - name: Gradle 준비
@@ -32,12 +32,31 @@ jobs:
         with:
           gradle-version: '8.13'
 
-      - name: APK 만들기
+      - name: 업로드 키 복원
+        run: |
+          echo "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" | base64 --decode > pokemon_card_meter_android/pokemon_card_meter_android/app/upload-keystore.jks
+
+      - name: 테스트 APK 만들기
         working-directory: pokemon_card_meter_android/pokemon_card_meter_android
         run: gradle :app:assembleDebug --stacktrace
 
-      - name: APK 저장
+      - name: 테스트 APK 저장
         uses: actions/upload-artifact@v4
         with:
           name: pokemon-card-meter-camera-test
           path: pokemon_card_meter_android/pokemon_card_meter_android/app/build/outputs/apk/debug/app-debug.apk
+
+      - name: 출시용 AAB 만들기
+        working-directory: pokemon_card_meter_android/pokemon_card_meter_android
+        env:
+          ANDROID_KEYSTORE_PATH: ${{ github.workspace }}/pokemon_card_meter_android/pokemon_card_meter_android/app/upload-keystore.jks
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: gradle :app:bundleRelease --stacktrace
+
+      - name: 출시용 AAB 저장
+        uses: actions/upload-artifact@v4
+        with:
+          name: pokemon-card-meter-release-aab
+          path: pokemon_card_meter_android/pokemon_card_meter_android/app/build/outputs/bundle/release/app-release.aab
