@@ -88,6 +88,13 @@ public class MainActivity extends Activity {
     private TextView dbNumberText;
     private TextView dbCategoryText;
     private TextView dbRarityText;
+    private Button marketButton;
+    private TextView marketStatusText;
+    private TextView minPriceText;
+    private TextView averagePriceText;
+    private TextView maxPriceText;
+    private TextView marketSampleText;
+    private TextView marketListingsText;
 
     private CameraDevice cameraDevice;
     private CameraCaptureSession captureSession;
@@ -116,6 +123,8 @@ public class MainActivity extends Activity {
             }
         });
         analyzeButton.setOnClickListener(v -> analyzeCapturedCard());
+        marketButton.setOnClickListener(v -> searchMarket());
+        
     }
 
     private void buildUi() {
@@ -237,6 +246,78 @@ public class MainActivity extends Activity {
         dbPanel.addView(dbCategoryText);
         dbPanel.addView(dbRarityText);
 
+                LinearLayout marketPanel = new LinearLayout(this);
+        marketPanel.setOrientation(LinearLayout.VERTICAL);
+        marketPanel.setPadding(dp(12), dp(12), dp(12), dp(12));
+        marketPanel.setBackground(roundRect(Color.rgb(246, 248, 255), dp(18)));
+
+        LinearLayout.LayoutParams marketLp =
+                new LinearLayout.LayoutParams(
+                        ViewGroup.LayoutParams.MATCH_PARENT,
+                        ViewGroup.LayoutParams.WRAP_CONTENT
+                );
+        marketLp.topMargin = dp(14);
+        resultPanel.addView(marketPanel, marketLp);
+
+        TextView marketTitle =
+                label("실시간 카드 시세", 15, Color.rgb(20, 34, 77), true);
+        marketPanel.addView(marketTitle);
+
+        marketStatusText =
+                label("카드 DB 확인 후 시세를 검색할 수 있습니다.",
+                        13, Color.rgb(74, 86, 120), true);
+
+        LinearLayout.LayoutParams marketStatusLp =
+                new LinearLayout.LayoutParams(
+                        ViewGroup.LayoutParams.MATCH_PARENT,
+                        ViewGroup.LayoutParams.WRAP_CONTENT
+                );
+        marketStatusLp.topMargin = dp(8);
+        marketPanel.addView(marketStatusText, marketStatusLp);
+
+        marketButton =
+                primaryButton(
+                        "시세 검색",
+                        Color.rgb(255, 216, 70),
+                        Color.rgb(20, 29, 58)
+                );
+        marketButton.setEnabled(false);
+
+        LinearLayout.LayoutParams marketButtonLp =
+                new LinearLayout.LayoutParams(
+                        ViewGroup.LayoutParams.MATCH_PARENT,
+                        dp(54)
+                );
+        marketButtonLp.topMargin = dp(10);
+        marketPanel.addView(marketButton, marketButtonLp);
+
+        minPriceText =
+                label("최저가: -", 15, Color.rgb(20, 34, 77), true);
+
+        averagePriceText =
+                label("평균가: -", 15, Color.rgb(20, 34, 77), true);
+
+        maxPriceText =
+                label("최고가: -", 15, Color.rgb(20, 34, 77), true);
+
+        marketSampleText =
+                label("검색 표본: -", 12, Color.rgb(74, 86, 120), false);
+
+        marketListingsText =
+                label("판매처: -", 12, Color.rgb(74, 86, 120), false);
+
+        LinearLayout.LayoutParams priceLp =
+                new LinearLayout.LayoutParams(
+                        ViewGroup.LayoutParams.MATCH_PARENT,
+                        ViewGroup.LayoutParams.WRAP_CONTENT
+                );
+        priceLp.topMargin = dp(10);
+
+        marketPanel.addView(minPriceText, priceLp);
+        marketPanel.addView(averagePriceText);
+        marketPanel.addView(maxPriceText);
+        marketPanel.addView(marketSampleText);
+        marketPanel.addView(marketListingsText);
         TextView rawTitle = label("AI 원문 응답", 13, Color.rgb(20, 34, 77), true);
         LinearLayout.LayoutParams rawTitleLp = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
         rawTitleLp.topMargin = dp(12);
@@ -678,13 +759,212 @@ public class MainActivity extends Activity {
             statusText.setText("AI + 카드 DB 검증 완료 · 결과를 확인해 주세요.");
             helperText.setTextColor(Color.rgb(255, 216, 70));
             helperText.setText("STEP 3 완료 ✓  · 다음: 시세 검색");
+            marketButton.setEnabled(true);
         } else {
             dbStatusText.setText(db.optString("message", "DB에서 완전 일치 카드를 찾지 못했습니다."));
             statusText.setText("AI 인식 완료 · DB 후보를 확인해 주세요.");
             helperText.setText("DB 일치 여부 확인 필요 · AI 값은 자동 변경하지 않았습니다.");
+            marketButton.setEnabled(false);
         }
     }
 
+        private void searchMarket() {
+        String cardName = cardNameInput.getText().toString().trim();
+        String language = languageInput.getText().toString().trim();
+        String setCode = setCodeInput.getText().toString().trim();
+        String cardNumber = cardNumberInput.getText().toString().trim();
+        String rarity = rarityInput.getText().toString().trim();
+
+        if (cardName.isEmpty() || cardNumber.isEmpty()) {
+            Toast.makeText(this, "카드명과 카드번호를 먼저 확인해 주세요.", Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        marketButton.setEnabled(false);
+        marketStatusText.setText("국내 판매처에서 동일 카드 시세를 검색하는 중…");
+        minPriceText.setText("최저가: 검색 중…");
+        averagePriceText.setText("평균가: 검색 중…");
+        maxPriceText.setText("최고가: 검색 중…");
+        marketSampleText.setText("검색 표본: 확인 중…");
+        marketListingsText.setText("판매처: 검색 중…");
+
+        new Thread(() -> {
+            try {
+                JSONObject result = callMarketServer(
+                        cardName,
+                        language,
+                        setCode,
+                        cardNumber,
+                        rarity
+                );
+
+                runOnUiThread(() -> applyMarketResult(result));
+
+            } catch (Exception e) {
+                runOnUiThread(() -> {
+                    marketStatusText.setText("시세 검색 실패 · 잠시 후 다시 시도해 주세요.");
+                    marketListingsText.setText("오류: " + e.getMessage());
+                    minPriceText.setText("최저가: -");
+                    averagePriceText.setText("평균가: -");
+                    maxPriceText.setText("최고가: -");
+                    marketSampleText.setText("검색 표본: -");
+                    marketButton.setEnabled(true);
+                });
+            }
+        }).start();
+    }
+
+    private JSONObject callMarketServer(
+            String cardName,
+            String language,
+            String setCode,
+            String cardNumber,
+            String rarity
+    ) throws Exception {
+
+        JSONObject request = new JSONObject();
+        request.put("cardName", cardName);
+        request.put("language", language);
+        request.put("setCode", setCode);
+        request.put("cardNumber", cardNumber);
+        request.put("rarity", rarity);
+
+        URL url = new URL(SERVER_URL + "/market");
+        HttpURLConnection conn =
+                (HttpURLConnection) url.openConnection();
+
+        conn.setRequestMethod("POST");
+        conn.setRequestProperty(
+                "Content-Type",
+                "application/json; charset=utf-8"
+        );
+        conn.setConnectTimeout(30000);
+        conn.setReadTimeout(180000);
+        conn.setDoOutput(true);
+
+        byte[] out = request.toString().getBytes("UTF-8");
+        conn.setFixedLengthStreamingMode(out.length);
+
+        try (OutputStream os = conn.getOutputStream()) {
+            os.write(out);
+        }
+
+        int code = conn.getResponseCode();
+
+        String body = readAll(
+                code >= 200 && code < 300
+                        ? conn.getInputStream()
+                        : conn.getErrorStream()
+        );
+
+        if (code < 200 || code >= 300) {
+            String detail = body;
+
+            try {
+                JSONObject err = new JSONObject(body);
+                detail = err.optString("error", body);
+            } catch (Exception ignored) {
+            }
+
+            throw new Exception(
+                    "시세 서버 응답 오류(" + code + "): " + detail
+            );
+        }
+
+        JSONObject response = new JSONObject(body);
+
+        if (!response.optBoolean("ok", false)) {
+            throw new Exception(
+                    response.optString(
+                            "error",
+                            "시세 검색에 실패했습니다."
+                    )
+            );
+        }
+
+        return response.getJSONObject("result");
+    }
+
+    private void applyMarketResult(JSONObject result) {
+        int sampleCount = result.optInt("sampleCount", 0);
+
+        if (sampleCount <= 0) {
+            marketStatusText.setText(
+                    "정확히 일치하는 국내 판매글을 찾지 못했습니다."
+            );
+            minPriceText.setText("최저가: -");
+            averagePriceText.setText("평균가: -");
+            maxPriceText.setText("최고가: -");
+            marketSampleText.setText("검색 표본: 0건");
+            marketListingsText.setText("판매처: -");
+            marketButton.setEnabled(true);
+            return;
+        }
+
+        int minPrice = result.optInt("minPrice", 0);
+        int averagePrice = result.optInt("averagePrice", 0);
+        int maxPrice = result.optInt("maxPrice", 0);
+
+        minPriceText.setText(
+                "최저가: " + formatWon(minPrice)
+        );
+
+        averagePriceText.setText(
+                "평균가: " + formatWon(averagePrice)
+        );
+
+        maxPriceText.setText(
+                "최고가: " + formatWon(maxPrice)
+        );
+
+        marketSampleText.setText(
+                "검색 표본: " + sampleCount + "건"
+        );
+
+        JSONArray listings = result.optJSONArray("listings");
+
+        StringBuilder sb = new StringBuilder();
+        sb.append("판매처:");
+
+        if (listings != null) {
+            int count = Math.min(listings.length(), 5);
+
+            for (int i = 0; i < count; i++) {
+                JSONObject item = listings.optJSONObject(i);
+
+                if (item == null) continue;
+
+                String market = item.optString("market", "판매처");
+                String title = item.optString("title", "");
+                int price = item.optInt("priceKRW", 0);
+
+                sb.append("\n")
+                        .append("• ")
+                        .append(market)
+                        .append(" · ")
+                        .append(formatWon(price));
+
+                if (!title.isEmpty()) {
+                    sb.append("\n  ").append(title);
+                }
+            }
+        }
+
+        marketListingsText.setText(sb.toString());
+
+        marketStatusText.setText(
+                "시세 검색 완료 ✓ · 동일 카드 "
+                        + sampleCount
+                        + "건 기준"
+        );
+
+        marketButton.setEnabled(true);
+    }
+
+    private String formatWon(int value) {
+        if (value <= 0) return "-";
+        return String.format("%,d원", value);
+    }
     private String emptyDash(String s) {
         return (s == null || s.trim().isEmpty()) ? "-" : s;
     }
