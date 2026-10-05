@@ -143,7 +143,7 @@ public class MainActivity extends Activity {
         root.setPadding(dp(16), dp(12), dp(16), dp(22));
         scroll.addView(root, new ScrollView.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
 
-        TextView badge = label("STEP 3 · 한국판 우선 DB 검증", 12, Color.rgb(23, 33, 63), true);
+        TextView badge = label("포켓몬 카드 시세 확인", 12, Color.rgb(23, 33, 63), true);
         badge.setBackground(roundRect(yellow, dp(18)));
         badge.setPadding(dp(12), dp(7), dp(12), dp(7));
         LinearLayout.LayoutParams badgeLp = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
@@ -156,7 +156,7 @@ public class MainActivity extends Activity {
         titleLp.topMargin = dp(10);
         root.addView(title, titleLp);
 
-        TextView sub = label("촬영 후 AI 결과를 한국판 카드 DB부터 우선 검증합니다.", 13, Color.rgb(194, 205, 235), false);
+        TextView sub = label("카드를 촬영하면 정보를 확인하고 실시간 시세를 검색할 수 있습니다.", 13, Color.rgb(194, 205, 235), false);
         sub.setGravity(Gravity.CENTER);
         LinearLayout.LayoutParams subLp = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
         subLp.topMargin = dp(4);
@@ -194,14 +194,14 @@ public class MainActivity extends Activity {
         buttonLp.topMargin = dp(10);
         root.addView(captureButton, buttonLp);
 
-        LinearLayout resultPanel = sectionPanel(root, "AI 인식 결과", "먼저 AI가 카드 정보를 읽고, 이어서 카드 DB에서 세트·번호·희귀도를 다시 확인합니다.");
+        LinearLayout resultPanel = sectionPanel(root, "카드 정보", "촬영한 카드의 기본 정보를 확인하고 실시간 시세를 검색할 수 있습니다.");
 
         analyzeButton = primaryButton("다시 인식", Color.rgb(75, 118, 255), Color.WHITE);
         analyzeButton.setEnabled(false);
         LinearLayout.LayoutParams analyzeLp = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(58));
         resultPanel.addView(analyzeButton, analyzeLp);
 
-        helperText = label("AI 인식 후 카드 DB를 자동 대조합니다", 12, Color.rgb(137, 153, 196), false);
+        helperText = label("카드를 인식하면 시세 검색을 사용할 수 있습니다.", 12, Color.rgb(137, 153, 196), false);
         helperText.setGravity(Gravity.CENTER_HORIZONTAL);
         LinearLayout.LayoutParams helperLp = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
         helperLp.topMargin = dp(10);
@@ -212,6 +212,7 @@ public class MainActivity extends Activity {
         cardNumberInput = labeledField(resultPanel, "카드번호");
         hpInput = labeledField(resultPanel, "HP");
         rarityInput = labeledField(resultPanel, "희귀도");
+        1rarityInput.setVisibility(View.GONE);
         languageInput = labeledField(resultPanel, "언어");
 
         confidenceText = label("인식 신뢰도: -", 13, Color.rgb(20, 34, 77), true);
@@ -220,6 +221,7 @@ public class MainActivity extends Activity {
         LinearLayout.LayoutParams confLp = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
         confLp.topMargin = dp(12);
         resultPanel.addView(confidenceText, confLp);
+        confidenceText.setVisibility(View.GONE);
 
         LinearLayout dbPanel = new LinearLayout(this);
         dbPanel.setOrientation(LinearLayout.VERTICAL);
@@ -228,6 +230,7 @@ public class MainActivity extends Activity {
         LinearLayout.LayoutParams dbLp = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
         dbLp.topMargin = dp(14);
         resultPanel.addView(dbPanel, dbLp);
+        dbPanel.setVisibility(View.GONE);
 
         TextView dbTitle = label("카드 DB 대조", 15, Color.rgb(20, 34, 77), true);
         dbPanel.addView(dbTitle);
@@ -264,7 +267,7 @@ public class MainActivity extends Activity {
         marketPanel.addView(marketTitle);
 
         marketStatusText =
-                label("카드 DB 확인 후 시세를 검색할 수 있습니다.",
+                label("카드 인식 후 시세를 검색할 수 있습니다.",
                         13, Color.rgb(74, 86, 120), true);
 
         LinearLayout.LayoutParams marketStatusLp =
@@ -322,6 +325,7 @@ public class MainActivity extends Activity {
         LinearLayout.LayoutParams rawTitleLp = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
         rawTitleLp.topMargin = dp(12);
         resultPanel.addView(rawTitle, rawTitleLp);
+        rawTitle.setVisibility(View.GONE);
 
         aiRawText = label("아직 인식 전입니다.", 12, Color.rgb(74, 86, 120), false);
         aiRawText.setBackground(roundRect(Color.rgb(243, 246, 255), dp(16)));
@@ -329,6 +333,7 @@ public class MainActivity extends Activity {
         LinearLayout.LayoutParams rawLp = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
         rawLp.topMargin = dp(6);
         resultPanel.addView(aiRawText, rawLp);
+        aiRawText.setVisibility(View.GONE);
     }
 
     private LinearLayout sectionPanel(LinearLayout root, String title, String sub) {
@@ -608,7 +613,7 @@ public class MainActivity extends Activity {
                 guideOverlay.setVisibility(View.GONE);
                 captureButton.setText("다시 촬영");
                 analyzeButton.setEnabled(false);
-                statusText.setText("촬영 완료 · AI가 카드 정보를 자동으로 읽는 중입니다…");
+                statusText.setText("촬영 완료 · 카드 정보를 확인하는 중입니다…");
                 helperText.setTextColor(Color.rgb(75, 118, 255));
                 helperText.setText("STEP 1 완료 ✓  · 서버로 안전하게 사진을 전송합니다.");
                 analyzeCapturedCard();
@@ -689,7 +694,7 @@ public class MainActivity extends Activity {
             return;
         }
         analyzeButton.setEnabled(false);
-        statusText.setText("AI 서버가 카드 사진을 분석하는 중입니다…");
+        statusText.setText("카드 사진을 분석하는 중입니다…");
         aiRawText.setText("분석 중...");
         new Thread(() -> {
             try {
@@ -716,10 +721,10 @@ public class MainActivity extends Activity {
         confidenceText.setText("인식 신뢰도: " + obj.optString("confidence", "-") + "%");
         aiRawText.setText(obj.toString());
         analyzeButton.setEnabled(true);
-        statusText.setText("AI 인식 완료 · 카드 DB와 대조하는 중입니다…");
+        statusText.setText("카드 인식 완료 · 정보를 확인하는 중입니다…");
         helperText.setTextColor(Color.rgb(75, 118, 255));
-        helperText.setText("STEP 2 완료 ✓  · 카드 DB 대조 중…");
-        dbStatusText.setText("한국판 우선 카드 DB 확인 중…");
+        helperText.setText("카드 정보 확인 중…");
+        dbStatusText.setText("카드 정보 확인 중…"); 
         new Thread(() -> {
             try {
                 JSONObject db = verifyCardWithDb(obj);
@@ -728,8 +733,8 @@ public class MainActivity extends Activity {
                 runOnUiThread(() -> {
                     dbStatusText.setText("DB 대조 실패 · AI 결과는 그대로 유지합니다.");
                     dbNameText.setText("DB 오류: " + e.getMessage());
-                    statusText.setText("AI 인식은 완료됐지만 DB 대조에 실패했습니다.");
-                    helperText.setText("STEP 2 완료 ✓  · DB 대조는 다시 시도 예정");
+                    statusText.setText("카드 인식 완료 · 시세 검색을 사용할 수 있습니다.");
+                    helperText.setText("카드 인식 완료 ✓  · 시세 검색 가능");
                 });
             }
         }).start();
@@ -756,14 +761,14 @@ public class MainActivity extends Activity {
             if (!dbHp.isEmpty() && hpInput.getText().toString().trim().isEmpty()) hpInput.setText(dbHp);
             if (!dbNumber.isEmpty()) cardNumberInput.setText(dbNumber);
             dbStatusText.setText(corrected ? "DB 확인 완료 ✓ · 카드번호를 자동 보정했습니다." : "DB 확인 완료 ✓ · AI 결과와 DB가 일치합니다.");
-            statusText.setText("AI + 카드 DB 검증 완료 · 결과를 확인해 주세요.");
+            statusText.setText("카드 정보 확인 완료 · 시세를 검색해 주세요.");
             helperText.setTextColor(Color.rgb(255, 216, 70));
-            helperText.setText("STEP 3 완료 ✓  · 다음: 시세 검색");
+            helperText.setText("시세 검색 준비 완료 ✓");
             marketButton.setEnabled(true);
         } else {
             dbStatusText.setText(db.optString("message", "DB에서 완전 일치 카드를 찾지 못했습니다."));
-            statusText.setText("AI 인식 완료 · DB 후보를 확인해 주세요.");
-            helperText.setText("DB 일치 여부 확인 필요 · AI 값은 자동 변경하지 않았습니다.");
+            statusText.setText("카드 인식 완료 · 시세를 검색할 수 있습니다.");
+            helperText.setText("카드 인식 완료 ✓  · 시세 검색 가능");
             marketButton.setEnabled(true);
         }
     }
@@ -1190,13 +1195,13 @@ public class MainActivity extends Activity {
         if (raw == null) return "카드 인식 중 오류가 발생했습니다. 다시 시도해 주세요.";
         String lower = raw.toLowerCase();
         if (raw.contains("429") || lower.contains("quota") || lower.contains("billing")) {
-            return "OpenAI API 사용 한도 또는 결제 설정을 확인해 주세요.";
+            return "현재 카드 분석 요청이 많습니다. 잠시 후 다시 시도해 주세요.";
         }
         if (raw.contains("401") || lower.contains("api key") || lower.contains("unauthorized")) {
-            return "서버의 OpenAI API 키 설정을 확인해 주세요.";
+            return "카드 분석 서비스에 연결할 수 없습니다. 잠시 후 다시 시도해 주세요.";
         }
         if (lower.contains("timed out") || lower.contains("timeout")) {
-            return "AI 서버 응답이 늦습니다. 잠시 후 ‘다시 인식’을 눌러주세요.";
+            return "카드 분석이 지연되고 있습니다. 잠시 후 다시 시도해 주세요.";
         }
         return "카드 인식 실패 · 다시 인식 버튼으로 재시도해 주세요.";
     }
