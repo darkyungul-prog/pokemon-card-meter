@@ -1,0 +1,38 @@
+name: Build Pokemon Card Meter APK
+
+on:
+  push:
+    branches: [ "main" ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: 소스 가져오기
+        uses: actions/checkout@v4
+
+      - name: Java 17 설치
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Android SDK 준비
+        uses: android-actions/setup-android@v3
+
+      - name: Gradle 준비
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.10.2'
+
+      - name: APK 만들기
+        working-directory: pokemon_card_meter_android
+        run: gradle :app:assembleDebug --stacktrace
+
+      - name: APK 파일 저장
+        uses: actions/upload-artifact@v4
+        with:
+          name: pokemon-card-meter-camera-test
+          path: pokemon_card_meter_android/app/build/outputs/apk/debug/app-debug.apk
