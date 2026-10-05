@@ -3,7 +3,6 @@ package com.pokemoncardmeter.app;
 import android.Manifest;
 import android.app.Activity;
 import android.content.Context;
-import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
@@ -26,7 +25,6 @@ import android.media.ImageReader;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.HandlerThread;
-import android.text.InputType;
 import android.util.Base64;
 import android.util.Size;
 import android.view.Gravity;
@@ -64,8 +62,7 @@ import java.util.List;
 
 public class MainActivity extends Activity {
     private static final int CAMERA_PERMISSION = 1001;
-    private static final String PREFS = "pokemon_card_meter";
-    private static final String KEY_API = "openai_api_key";
+    private static final String SERVER_URL = "https://pokemon-card-meter-api.onrender.com";
 
     private TextureView textureView;
     private GuideOverlay guideOverlay;
@@ -75,8 +72,6 @@ public class MainActivity extends Activity {
     private TextView aiRawText;
     private Button captureButton;
     private Button analyzeButton;
-    private Button saveApiButton;
-    private EditText apiKeyInput;
     private EditText cardNameInput;
     private EditText setCodeInput;
     private EditText cardNumberInput;
@@ -103,8 +98,6 @@ public class MainActivity extends Activity {
         getWindow().setStatusBarColor(Color.rgb(8, 17, 47));
         getWindow().setNavigationBarColor(Color.rgb(8, 17, 47));
         buildUi();
-        loadSavedApiKey();
-
         textureView.setSurfaceTextureListener(surfaceListener);
         captureButton.setOnClickListener(v -> {
             if (capturedView.getVisibility() == View.VISIBLE) {
@@ -113,7 +106,6 @@ public class MainActivity extends Activity {
                 takePicture();
             }
         });
-        saveApiButton.setOnClickListener(v -> saveApiKey());
         analyzeButton.setOnClickListener(v -> analyzeCapturedCard());
     }
 
@@ -133,7 +125,7 @@ public class MainActivity extends Activity {
         root.setPadding(dp(16), dp(12), dp(16), dp(22));
         scroll.addView(root, new ScrollView.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
 
-        TextView badge = label("STEP 2 · CHATGPT 인식", 12, Color.rgb(23, 33, 63), true);
+        TextView badge = label("STEP 2 · AI 카드 인식", 12, Color.rgb(23, 33, 63), true);
         badge.setBackground(roundRect(yellow, dp(18)));
         badge.setPadding(dp(12), dp(7), dp(12), dp(7));
         LinearLayout.LayoutParams badgeLp = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
@@ -146,7 +138,7 @@ public class MainActivity extends Activity {
         titleLp.topMargin = dp(10);
         root.addView(title, titleLp);
 
-        TextView sub = label("촬영한 카드 사진을 ChatGPT가 읽어 카드 정보를 자동 입력합니다.", 13, Color.rgb(194, 205, 235), false);
+        TextView sub = label("카드를 촬영하면 서버의 AI가 자동으로 카드 정보를 읽습니다.", 13, Color.rgb(194, 205, 235), false);
         sub.setGravity(Gravity.CENTER);
         LinearLayout.LayoutParams subLp = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
         subLp.topMargin = dp(4);
@@ -184,17 +176,9 @@ public class MainActivity extends Activity {
         buttonLp.topMargin = dp(10);
         root.addView(captureButton, buttonLp);
 
-        LinearLayout apiPanel = sectionPanel(root, "OpenAI API 키 (시험용)", "이 테스트 APK는 ChatGPT 인식을 위해 OpenAI API 키를 1회 입력해야 합니다. 저장은 이 기기 내부에만 됩니다. 정식 앱은 서버 방식으로 바뀔 예정입니다.");
-        apiKeyInput = field(apiPanel, "sk-... 형식의 OpenAI API Key");
-        apiKeyInput.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_VARIATION_VISIBLE_PASSWORD);
-        saveApiButton = secondaryButton("API 키 저장");
-        LinearLayout.LayoutParams saveLp = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(50));
-        saveLp.topMargin = dp(10);
-        apiPanel.addView(saveApiButton, saveLp);
+        LinearLayout resultPanel = sectionPanel(root, "AI 인식 결과", "촬영이 끝나면 자동으로 분석합니다. 카드명, 세트코드, 카드번호, HP, 희귀도를 채우고 틀린 값은 직접 수정할 수 있습니다.");
 
-        LinearLayout resultPanel = sectionPanel(root, "ChatGPT 인식 결과", "촬영 후 ‘카드 정보 읽기’를 누르면 카드명, 세트코드, 카드번호, HP, 희귀도를 자동으로 채웁니다. 틀린 값은 직접 수정할 수 있습니다.");
-
-        analyzeButton = primaryButton("카드 정보 읽기", Color.rgb(75, 118, 255), Color.WHITE);
+        analyzeButton = primaryButton("다시 인식", Color.rgb(75, 118, 255), Color.WHITE);
         analyzeButton.setEnabled(false);
         LinearLayout.LayoutParams analyzeLp = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(58));
         resultPanel.addView(analyzeButton, analyzeLp);
@@ -507,10 +491,11 @@ public class MainActivity extends Activity {
                 textureView.setVisibility(View.INVISIBLE);
                 guideOverlay.setVisibility(View.GONE);
                 captureButton.setText("다시 촬영");
-                analyzeButton.setEnabled(true);
-                statusText.setText("촬영 완료 · 아래 ‘카드 정보 읽기’를 누르면 ChatGPT가 카드 정보를 입력합니다.");
+                analyzeButton.setEnabled(false);
+                statusText.setText("촬영 완료 · AI가 카드 정보를 자동으로 읽는 중입니다…");
                 helperText.setTextColor(Color.rgb(75, 118, 255));
-                helperText.setText("STEP 1 완료 ✓  · 지금은 ChatGPT 인식 단계입니다.");
+                helperText.setText("STEP 1 완료 ✓  · 서버로 안전하게 사진을 전송합니다.");
+                analyzeCapturedCard();
             });
         } catch (Exception e) {
             runOnUiThread(() -> statusText.setText("사진 저장 오류: " + e.getMessage()));
@@ -524,23 +509,8 @@ public class MainActivity extends Activity {
         textureView.setVisibility(View.VISIBLE);
         guideOverlay.setVisibility(View.VISIBLE);
         captureButton.setText("카드 촬영");
-        analyzeButton.setEnabled(lastPhoto != null);
+        analyzeButton.setEnabled(false);
         statusText.setText("카드 네 모서리를 노란 프레임에 맞춰주세요.");
-    }
-
-    private void saveApiKey() {
-        String key = apiKeyInput.getText().toString().trim();
-        if (key.isEmpty()) {
-            Toast.makeText(this, "API 키를 입력해 주세요.", Toast.LENGTH_SHORT).show();
-            return;
-        }
-        getSharedPreferences(PREFS, MODE_PRIVATE).edit().putString(KEY_API, key).apply();
-        Toast.makeText(this, "API 키가 저장되었습니다.", Toast.LENGTH_SHORT).show();
-    }
-
-    private void loadSavedApiKey() {
-        String key = getSharedPreferences(PREFS, MODE_PRIVATE).getString(KEY_API, "");
-        apiKeyInput.setText(key);
     }
 
     private void analyzeCapturedCard() {
@@ -548,24 +518,18 @@ public class MainActivity extends Activity {
             Toast.makeText(this, "먼저 카드를 촬영해 주세요.", Toast.LENGTH_SHORT).show();
             return;
         }
-        final String apiKey = apiKeyInput.getText().toString().trim();
-        if (apiKey.isEmpty()) {
-            statusText.setText("먼저 OpenAI API 키를 입력하고 저장해 주세요.");
-            Toast.makeText(this, "OpenAI API 키가 필요합니다.", Toast.LENGTH_LONG).show();
-            return;
-        }
-        saveApiKey();
         analyzeButton.setEnabled(false);
-        statusText.setText("ChatGPT가 카드 사진을 읽는 중입니다…");
+        statusText.setText("AI 서버가 카드 사진을 분석하는 중입니다…");
         aiRawText.setText("분석 중...");
         new Thread(() -> {
             try {
-                JSONObject ai = callOpenAi(apiKey, lastPhoto);
+                JSONObject ai = callRecognitionServer(lastPhoto);
                 runOnUiThread(() -> applyAiResult(ai));
             } catch (Exception e) {
                 runOnUiThread(() -> {
                     analyzeButton.setEnabled(true);
-                    statusText.setText("ChatGPT 인식 실패: " + e.getMessage());
+                    String msg = friendlyServerError(e.getMessage());
+                    statusText.setText(msg);
                     aiRawText.setText("오류: " + e.getMessage());
                 });
             }
@@ -579,44 +543,28 @@ public class MainActivity extends Activity {
         hpInput.setText(obj.optString("hp", ""));
         rarityInput.setText(obj.optString("rarity", ""));
         languageInput.setText(obj.optString("language", ""));
-        confidenceText.setText("인식 신뢰도: " + obj.optString("confidence", "-"));
+        confidenceText.setText("인식 신뢰도: " + obj.optString("confidence", "-") + "%");
         aiRawText.setText(obj.toString());
         analyzeButton.setEnabled(true);
-        statusText.setText("ChatGPT 인식 완료 · 자동입력된 값을 확인해 주세요.");
+        statusText.setText("AI 인식 완료 · 자동입력된 값을 확인해 주세요.");
         helperText.setTextColor(Color.rgb(255, 216, 70));
-        helperText.setText("STEP 2 완료 ✓  · 다음: 이 정보로 카드 DB 및 시세 검색 연결");
+        helperText.setText("STEP 2 완료 ✓  · 다음: 카드 DB 대조 및 시세 검색");
     }
 
-    private JSONObject callOpenAi(String apiKey, File imageFile) throws Exception {
+    private JSONObject callRecognitionServer(File imageFile) throws Exception {
         byte[] imageBytes = prepareImageBytes(imageFile);
-        String dataUrl = "data:image/jpeg;base64," + Base64.encodeToString(imageBytes, Base64.NO_WRAP);
+        JSONObject request = new JSONObject();
+        request.put("imageBase64", Base64.encodeToString(imageBytes, Base64.NO_WRAP));
+        request.put("mimeType", "image/jpeg");
 
-        JSONObject root = new JSONObject();
-        root.put("model", "gpt-4o-mini");
-        root.put("response_format", new JSONObject().put("type", "json_object"));
-
-        JSONArray messages = new JSONArray();
-        messages.put(new JSONObject()
-                .put("role", "system")
-                .put("content", "You extract information from Pokemon trading cards. Reply in strict JSON only."));
-
-        JSONArray userContent = new JSONArray();
-        userContent.put(new JSONObject()
-                .put("type", "text")
-                .put("text", "Read the Pokemon card in the image and return strict JSON with these keys only: cardName, language, setCode, cardNumber, hp, rarity, confidence, notes. Use empty strings when unknown. Keep cardNumber format with slash if visible, like 018/098. confidence should be a short string such as 92 or 75. If the card is Korean, language should be Korean. Do not wrap JSON in markdown."));
-        userContent.put(new JSONObject()
-                .put("type", "image_url")
-                .put("image_url", new JSONObject().put("url", dataUrl).put("detail", "high")));
-        messages.put(new JSONObject().put("role", "user").put("content", userContent));
-        root.put("messages", messages);
-
-        URL url = new URL("https://api.openai.com/v1/chat/completions");
+        URL url = new URL(SERVER_URL + "/analyze");
         HttpURLConnection conn = (HttpURLConnection) url.openConnection();
         conn.setRequestMethod("POST");
-        conn.setRequestProperty("Content-Type", "application/json");
-        conn.setRequestProperty("Authorization", "Bearer " + apiKey);
+        conn.setRequestProperty("Content-Type", "application/json; charset=utf-8");
+        conn.setConnectTimeout(30000);
+        conn.setReadTimeout(90000);
         conn.setDoOutput(true);
-        byte[] out = root.toString().getBytes("UTF-8");
+        byte[] out = request.toString().getBytes("UTF-8");
         conn.setFixedLengthStreamingMode(out.length);
         try (OutputStream os = conn.getOutputStream()) {
             os.write(out);
@@ -625,13 +573,34 @@ public class MainActivity extends Activity {
         int code = conn.getResponseCode();
         String body = readAll(code >= 200 && code < 300 ? conn.getInputStream() : conn.getErrorStream());
         if (code < 200 || code >= 300) {
-            throw new Exception("API 응답 오류(" + code + "): " + body);
+            String detail = body;
+            try {
+                JSONObject err = new JSONObject(body);
+                detail = err.optString("error", body);
+            } catch (Exception ignored) { }
+            throw new Exception("서버 응답 오류(" + code + "): " + detail);
         }
 
         JSONObject resp = new JSONObject(body);
-        JSONArray choices = resp.getJSONArray("choices");
-        String content = choices.getJSONObject(0).getJSONObject("message").getString("content");
-        return new JSONObject(content);
+        if (!resp.optBoolean("ok", false)) {
+            throw new Exception(resp.optString("error", "카드 분석에 실패했습니다."));
+        }
+        return resp.getJSONObject("result");
+    }
+
+    private String friendlyServerError(String raw) {
+        if (raw == null) return "카드 인식 중 오류가 발생했습니다. 다시 시도해 주세요.";
+        String lower = raw.toLowerCase();
+        if (raw.contains("429") || lower.contains("quota") || lower.contains("billing")) {
+            return "OpenAI API 사용 한도 또는 결제 설정을 확인해 주세요.";
+        }
+        if (raw.contains("401") || lower.contains("api key") || lower.contains("unauthorized")) {
+            return "서버의 OpenAI API 키 설정을 확인해 주세요.";
+        }
+        if (lower.contains("timed out") || lower.contains("timeout")) {
+            return "AI 서버 응답이 늦습니다. 잠시 후 ‘다시 인식’을 눌러주세요.";
+        }
+        return "카드 인식 실패 · 다시 인식 버튼으로 재시도해 주세요.";
     }
 
     private byte[] prepareImageBytes(File file) throws Exception {

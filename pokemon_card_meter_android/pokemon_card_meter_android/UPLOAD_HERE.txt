@@ -1,0 +1,6 @@
+GitHub에서 아래 폴더로 이동하세요:
+pokemon_card_meter_android/pokemon_card_meter_android
+
+그 위치에서 Add file > Upload files를 누르고,
+이 압축을 푼 뒤 보이는 app 폴더를 드래그해서 업로드하세요.
+기존 같은 파일 3개가 STEP 3 서버연동 버전으로 교체됩니다.
