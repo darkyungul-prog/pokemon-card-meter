@@ -33,11 +33,11 @@ jobs:
           gradle-version: '8.10.2'
 
       - name: APK 만들기
-        working-directory: pokemon_card_meter_android
+        working-directory: pokemon_card_meter_android/pokemon_card_meter_android
         run: gradle :app:assembleDebug --stacktrace
 
       - name: APK 저장
         uses: actions/upload-artifact@v4
         with:
           name: pokemon-card-meter-camera-test
-          path: pokemon_card_meter_android/app/build/outputs/apk/debug/app-debug.apk
+          path: pokemon_card_meter_android/pokemon_card_meter_android/app/build/outputs/apk/debug/app-debug.apk
